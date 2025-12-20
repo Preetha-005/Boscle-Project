@@ -1,0 +1,89 @@
+{
+    "video_processing": {
+        "supported_formats": [
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".mkv",
+            ".wmv",
+            ".flv",
+            ".webm"
+        ],
+        "max_resolution": "1920x1080",
+        "fps_threshold": 30,
+        "scene_detection_threshold": 0.3,
+        "frame_extraction_interval": 1.0
+    },
+    "audio_transcription": {
+        "model": "whisper",
+        "language": "en",
+        "chunk_duration": 30,
+        "enable_speaker_detection": true,
+        "confidence_threshold": 0.8,
+        "azure_region": "eastus"
+    },
+    "caption_generation": {
+        "font_size": 24,
+        "font_family": "Arial",
+        "font_family_linux": "DejaVu Sans",
+        "font_family_fallback": "Liberation Sans",
+        "font_color": "white",
+        "background_color": "black",
+        "background_opacity": 0.7,
+        "position": "bottom",
+        "max_chars_per_line": 50,
+        "max_lines": 2,
+        "caption_duration": 3.0
+    },
+    "report_generation": {
+        "format": "pdf",
+        "include_screenshots": true,
+        "include_timestamps": true,
+        "include_summaries": true,
+        "summary_model": "gpt-4o-mini"
+    },
+    "youtube": {
+        "download_format": "best[height<=720]",
+        "audio_format": "bestaudio/best",
+        "download_subtitles": true
+    },
+    "web_video": {
+        "user_agent_windows": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "user_agent_linux": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "user_agent_darwin": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "timeout": 30,
+        "max_retries": 3,
+        "chunk_size": 8192
+    },
+    "output": {
+        "default_output_dir": "",
+        "create_subfolders": true,
+        "preserve_original": true,
+        "compression_quality": 23,
+        "image_quality": 85
+    },
+    "logging": {
+        "level": "INFO",
+        "log_filename": "application.log",
+        "max_file_size_mb": 10,
+        "backup_count": 5,
+        "console_output": true
+    },
+    "performance": {
+        "max_concurrent_processes": 4,
+        "memory_limit_mb": 2048,
+        "temp_cleanup": true,
+        "gpu_acceleration": false
+    },
+    "security": {
+        "encrypt_credentials": true,
+        "session_timeout": 3600,
+        "secure_download": true
+    },
+    "paths": {
+        "ffmpeg_path": "",
+        "ffprobe_path": "",
+        "temp_dir": "",
+        "cache_dir": ""
+    }
+}
