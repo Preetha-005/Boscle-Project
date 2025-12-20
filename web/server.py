@@ -344,11 +344,30 @@ def process_video_background(process_id, input_type, video_path_or_url, options)
     try:
         # Get output directory from options or use default
         custom_output = options.get('outputDirectory')
+        
+        # Validate and sanitize output directory
         if custom_output:
-            output_dir = Path(custom_output)
+            custom_path_str = str(custom_output).strip()
+            
+            # Check for Windows paths on Linux/Mac (common error)
+            if not IS_WINDOWS and (':\\' in custom_path_str or custom_path_str.startswith('C:') or custom_path_str.startswith('D:')):
+                logger.warning(f"Rejecting Windows path on {SYSTEM}: {custom_path_str}")
+                logger.info("Using server default output directory instead")
+                output_dir = get_default_output_dir()
+            else:
+                try:
+                    output_dir = Path(custom_output)
+                    # Validate the path is accessible
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    logger.info(f"Using custom output directory: {output_dir}")
+                except Exception as path_err:
+                    logger.warning(f"Invalid custom output path '{custom_output}': {path_err}")
+                    logger.info("Falling back to server default output directory")
+                    output_dir = get_default_output_dir()
         else:
             output_dir = get_default_output_dir()
         
+        # Ensure output directory exists
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Get password protection settings
