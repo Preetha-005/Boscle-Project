@@ -640,6 +640,31 @@ function changeOutputDirectory() {
 
     if (newPath && newPath.trim() !== '') {
         const trimmedPath = newPath.trim();
+
+        // Validate path format against server platform
+        const isWindowsPath = /^[A-Za-z]:\\/.test(trimmedPath) || trimmedPath.includes(':\\');
+        const isUnixPath = trimmedPath.startsWith('/') || trimmedPath.startsWith('~');
+
+        // Warn if Windows path on non-Windows server
+        if (state.platform !== 'Windows' && isWindowsPath) {
+            showNotification(
+                '⚠️ Warning: You entered a Windows path (e.g., C:\\...) but the server is running on ' + state.platform + '. ' +
+                'The server will use its default directory instead. Please use Unix-style paths (e.g., /home/user/...).',
+                'error'
+            );
+            return;
+        }
+
+        // Warn if Unix path on Windows server
+        if (state.platform === 'Windows' && isUnixPath && !trimmedPath.startsWith('~')) {
+            showNotification(
+                '⚠️ Warning: You entered a Unix path but the server is running on Windows. ' +
+                'Please use Windows-style paths (e.g., C:\\Users\\...).',
+                'error'
+            );
+            return;
+        }
+
         state.customOutputDirectory = trimmedPath;
         document.getElementById('outputPath').textContent = trimmedPath;
         showNotification('Output directory updated!', 'success');
