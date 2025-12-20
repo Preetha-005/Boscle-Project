@@ -219,7 +219,6 @@ async function startProcessing() {
             options: {
                 burnCaptions: document.getElementById('burnCaptions').checked,
                 generateReport: document.getElementById('generateReport').checked,
-                outputDirectory: state.customOutputDirectory,
                 passwordProtection: state.passwordProtection,
                 filePassword: state.filePassword
             }
@@ -392,103 +391,93 @@ function completeProcessing() {
 
 function displayResults() {
     // Use actual results from backend if available
-    if (state.results) {
+    if (state.results && state.results.zipFile) {
+        const isProtected = state.results.passwordProtected;
+        const filename = state.results.zipFilename;
+
+        // Build the download URL
+        const downloadUrl = `/api/download?filename=${encodeURIComponent(filename)}`;
+
+        elements.resultsGrid.innerHTML = `
+            <div class="result-card download-card ${isProtected ? 'protected-card' : ''}">
+                <div class="result-header">
+                    <div class="result-icon ${isProtected ? 'protected-icon' : ''}">
+                        ${isProtected ?
+                `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 15V17M6 21H18C19.1046 21 20 20.1046 20 19V13C20 11.8954 19.1046 11 18 11H6C4.89543 11 4 11.8954 4 13V19C4 20.1046 4.89543 21 6 21ZM16 11V7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7V11H16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>` :
+                `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>`
+            }
+                    </div>
+                    <h3 class="result-title">${isProtected ? '🔒 Password Protected Files' : '📦 Your Files Are Ready!'}</h3>
+                </div>
+                
+                <p class="result-description">
+                    ${isProtected ?
+                'Your files are encrypted and secured. You will need your password to extract them.' :
+                'All your processed files are bundled and ready for download.'
+            }
+                </p>
+                
+                <div class="download-contents">
+                    <p class="contents-title">📁 Package contains:</p>
+                    <ul class="contents-list">
+                        <li>🎬 Captioned Video (with burned-in captions)</li>
+                        <li>📄 Meeting Report (PDF)</li>
+                        <li>📝 Transcript (TXT)</li>
+                    </ul>
+                </div>
+                
+                ${isProtected ? '<p class="password-reminder">💡 Remember: You\'ll need your password to extract files</p>' : ''}
+                
+                <a href="${downloadUrl}" class="download-btn" download="${filename}">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Download ${isProtected ? 'Protected ' : ''}Files
+                </a>
+                
+                <p class="filename-display">${filename}</p>
+            </div>
+        `;
+    } else if (state.results) {
+        // Fallback for individual files (if zip creation failed)
         const results = [];
 
-        // Check if this is a password-protected archive
-        if (state.results.passwordProtected && state.results.protectedArchive) {
-            results.push({
-                icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 15V17M6 21H18C19.1046 21 20 20.1046 20 19V13C20 11.8954 19.1046 11 18 11H6C4.89543 11 4 11.8954 4 13V19C4 20.1046 4.89543 21 6 21ZM16 11V7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7V11H16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>`,
-                title: '🔒 Password Protected Archive',
-                description: 'All your files are encrypted and secured. Use your password to extract.',
-                action: 'Open Archive Location',
-                path: state.results.protectedArchive,
-                isProtected: true
-            });
-        } else {
-            // Regular unprotected files
-            if (state.results.captionedVideo) {
-                results.push({
-                    icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 10L19.553 7.724C20.237 7.382 21 7.87 21 8.618V15.382C21 16.13 20.237 16.618 19.553 16.276L15 14M5 18H11C12.105 18 13 17.105 13 16V8C13 6.895 12.105 6 11 6H5C3.895 6 3 6.895 3 8V16C3 17.105 3.895 18 5 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`,
-                    title: 'Captioned Video',
-                    description: 'Video with embedded captions',
-                    action: 'Open File',
-                    path: state.results.captionedVideo
-                });
-            }
-
-            if (state.results.report) {
-                results.push({
-                    icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L18.7071 8.70711C18.8946 8.89464 19 9.149 19 9.41421V19C19 20.1046 18.1046 21 17 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`,
-                    title: 'Meeting Report',
-                    description: 'Detailed documentation with transcript',
-                    action: 'Open File',
-                    path: state.results.report
-                });
-            }
-
-            if (state.results.transcript) {
-                results.push({
-                    icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L18.7071 8.70711C18.8946 8.89464 19 9.149 19 9.41421V19C19 20.1046 18.1046 21 17 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`,
-                    title: 'Transcript',
-                    description: 'Full text transcript with timestamps',
-                    action: 'Open File',
-                    path: state.results.transcript
-                });
-            }
+        if (state.results.captionedVideo) {
+            results.push({ title: 'Captioned Video', path: state.results.captionedVideo });
+        }
+        if (state.results.report) {
+            results.push({ title: 'Meeting Report', path: state.results.report });
+        }
+        if (state.results.transcript) {
+            results.push({ title: 'Transcript', path: state.results.transcript });
         }
 
-        if (results.length === 0) {
+        if (results.length > 0) {
             elements.resultsGrid.innerHTML = `
                 <div class="result-card">
-                    <p>Processing completed! Check the output directory for your files.</p>
-                    <p class="result-path">${state.defaultOutputDir || 'Output directory'}</p>
+                    <h3 class="result-title">⚠️ Files Created (Not Zipped)</h3>
+                    <p class="result-description">Files were created but zip creation failed. Contact support if this persists.</p>
+                    <ul class="contents-list">
+                        ${results.map(r => `<li>${r.title}: ${r.path}</li>`).join('')}
+                    </ul>
                 </div>
             `;
-            return;
-        }
-
-        elements.resultsGrid.innerHTML = results.map(result => `
-            <div class="result-card ${result.isProtected ? 'protected-card' : ''}">
-                <div class="result-header">
-                    <div class="result-icon ${result.isProtected ? 'protected-icon' : ''}">
-                        ${result.icon}
-                    </div>
-                    <h3 class="result-title">${result.title}</h3>
+        } else {
+            elements.resultsGrid.innerHTML = `
+                <div class="result-card">
+                    <p>Processing completed! Please check the server logs if files are missing.</p>
                 </div>
-                <p class="result-description">${result.description}</p>
-                ${result.isProtected ? '<p class="password-reminder">💡 Remember: You\'ll need your password to extract files</p>' : ''}
-                <p class="result-path">${result.path}</p>
-                <button class="result-action" data-filepath="${result.path}">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11M15 3H21M21 3V9M21 3L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    ${result.action}
-                </button>
-            </div>
-        `).join('');
-
-        // Add click event listeners to all open file buttons
-        document.querySelectorAll('.result-action').forEach(button => {
-            button.addEventListener('click', function () {
-                const filepath = this.getAttribute('data-filepath');
-                openFile(filepath);
-            });
-        });
+            `;
+        }
     } else {
         // Fallback message
         elements.resultsGrid.innerHTML = `
             <div class="result-card">
-                <p>Processing completed! Check the output directory for your files.</p>
-                <p class="result-path">${state.defaultOutputDir || 'Output directory'}</p>
+                <p>Processing completed! Please check the server logs for details.</p>
             </div>
         `;
     }
