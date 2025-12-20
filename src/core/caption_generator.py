@@ -78,7 +78,19 @@ class CaptionGenerator:
             ass_path = self._generate_ass_file(caption_segments, output_path)
             
             self.logger.log_processing_step("Burning captions into video")
-            self._burn_captions_with_ffmpeg(video_path, ass_path, str(output_video_path))
+            
+            # Try burning captions with retry logic for OOM errors
+            try:
+                self._burn_captions_with_ffmpeg(video_path, ass_path, str(output_video_path))
+            except Exception as e:
+                error_msg = str(e)
+                # If OOM error, try with downscaled video
+                if "insufficient memory" in error_msg.lower() or "terminated" in error_msg.lower():
+                    self.logger.warning("First attempt failed due to memory constraints, retrying with downscaled video...")
+                    self.logger.log_processing_step("Retrying with memory-optimized settings")
+                    self._burn_captions_with_ffmpeg_lowmem(video_path, ass_path, str(output_video_path))
+                else:
+                    raise
             
             if not output_video_path.exists():
                 raise Exception("Captioned video was not created")
@@ -400,7 +412,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
         return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
         
     def _burn_captions_with_ffmpeg(self, video_path: str, subtitle_path: str, output_path: str):
-        """Burn captions into video using FFmpeg - Cross-platform"""
+        """Burn captions into video using FFmpeg - Cross-platform with memory optimization"""
         try:
             subtitle_path_str = str(subtitle_path)
             
@@ -415,18 +427,102 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
                 # On Unix: escape special characters
                 subtitle_path_normalized = subtitle_path_str.replace("'", r"\'")
             
+            # Memory-efficient FFmpeg command for container environments
+            # Uses lower thread count, smaller buffers, and faster preset to reduce memory usage
             cmd = [
                 'ffmpeg',
                 '-i', video_path,
                 '-vf', f"ass=filename='{subtitle_path_normalized}'",
                 '-c:v', 'libx264',
+                '-preset', 'veryfast',  # Faster encoding = less memory
                 '-crf', str(self.compression_quality),
+                '-threads', '2',  # Limit threads to reduce memory
+                '-bufsize', '2M',  # Smaller buffer size
+                '-maxrate', '5M',  # Limit bitrate
                 '-c:a', 'copy',
+                '-max_muxing_queue_size', '1024',  # Prevent queue overflow
                 '-y',
                 output_path
             ]
             
-            self.logger.info(f"Running FFmpeg: {' '.join(cmd)}")
+            self.logger.info(f"Running FFmpeg with memory-efficient settings: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                universal_newlines=True
+            )
+            
+            stderr_output = []
+            while True:
+                output = process.stderr.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    stderr_output.append(output.strip())
+                    if "time=" in output:
+                        self._log_ffmpeg_progress(output)
+                        
+            process.wait()
+            
+            # Handle different error codes
+            if process.returncode != 0:
+                error_msg = '\n'.join(stderr_output[-10:])
+                
+                # Check if it's an OOM kill (signal -9)
+                if process.returncode == -9:
+                    raise Exception(
+                        "FFmpeg was terminated due to insufficient memory. "
+                        "The video file may be too large for the available server resources. "
+                        "Please try with a smaller video file or contact support to increase memory limits."
+                    )
+                else:
+                    raise Exception(f"FFmpeg failed with return code {process.returncode}:\n{error_msg}")
+                
+            self.logger.info(f"Successfully burned captions: {output_path}")
+            
+        except FileNotFoundError:
+            raise Exception("FFmpeg not found. Please install FFmpeg and ensure it's in PATH")
+        except Exception as e:
+            raise Exception(f"Caption burning failed: {str(e)}")
+    
+    def _burn_captions_with_ffmpeg_lowmem(self, video_path: str, subtitle_path: str, output_path: str):
+        """
+        Burn captions with extreme memory optimization - downscales to 720p
+        This is a fallback for when the normal method fails due to OOM
+        """
+        try:
+            subtitle_path_str = str(subtitle_path)
+            
+            # Cross-platform path handling for FFmpeg
+            if self.IS_WINDOWS:
+                subtitle_path_normalized = subtitle_path_str.replace('\\', '/')
+                if len(subtitle_path_normalized) > 1 and subtitle_path_normalized[1] == ':':
+                    subtitle_path_normalized = subtitle_path_normalized[0] + '\\:' + subtitle_path_normalized[2:]
+            else:
+                subtitle_path_normalized = subtitle_path_str.replace("'", r"\'")
+            
+            # Ultra low-memory settings: downscale to 720p, single thread, minimal buffers
+            cmd = [
+                'ffmpeg',
+                '-i', video_path,
+                '-vf', f"scale=-2:720,ass=filename='{subtitle_path_normalized}'",  # Downscale to 720p
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',  # Fastest encoding
+                '-crf', '28',  # Higher CRF = lower quality but much less memory
+                '-threads', '1',  # Single thread
+                '-bufsize', '1M',  # Minimal buffer
+                '-maxrate', '2M',  # Lower bitrate
+                '-c:a', 'aac',  # Re-encode audio to AAC (smaller)
+                '-b:a', '128k',  # Lower audio bitrate
+                '-max_muxing_queue_size', '512',
+                '-y',
+                output_path
+            ]
+            
+            self.logger.info(f"Running FFmpeg with ultra-low-memory settings (720p): {' '.join(cmd)}")
             
             process = subprocess.Popen(
                 cmd,
@@ -450,14 +546,22 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
             
             if process.returncode != 0:
                 error_msg = '\n'.join(stderr_output[-10:])
-                raise Exception(f"FFmpeg failed with return code {process.returncode}:\n{error_msg}")
+                if process.returncode == -9:
+                    raise Exception(
+                        "Video processing failed even with reduced quality settings. "
+                        "The server does not have enough memory to process this video. "
+                        "Please try with a shorter or smaller video file."
+                    )
+                else:
+                    raise Exception(f"FFmpeg (low-mem mode) failed with return code {process.returncode}:\n{error_msg}")
                 
-            self.logger.info(f"Successfully burned captions: {output_path}")
+            self.logger.info(f"Successfully burned captions with low-memory mode: {output_path}")
             
         except FileNotFoundError:
             raise Exception("FFmpeg not found. Please install FFmpeg and ensure it's in PATH")
         except Exception as e:
-            raise Exception(f"Caption burning failed: {str(e)}")
+            raise Exception(f"Low-memory caption burning failed: {str(e)}")
+            
             
     def _log_ffmpeg_progress(self, output: str):
         """Parse and log FFmpeg progress"""
