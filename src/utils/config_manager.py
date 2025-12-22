@@ -58,7 +58,7 @@ class ConfigManager:
             "caption_generation": {
                 "font_size": 24,
                 "font_family": "Arial",
-                "font_family_linux": "DejaVu Sans",
+                "font_family_linux": "Liberation Sans",
                 "font_family_fallback": "Liberation Sans",
                 "font_color": "white",
                 "background_color": "black",
@@ -251,7 +251,7 @@ class ConfigManager:
         if self.IS_WINDOWS:
             return self.get("caption_generation.font_family", "Arial")
         elif self.IS_LINUX:
-            return self.get("caption_generation.font_family_linux", "DejaVu Sans")
+            return self.get("caption_generation.font_family_linux", "Liberation Sans")
         else:
             return self.get("caption_generation.font_family", "Arial")
         

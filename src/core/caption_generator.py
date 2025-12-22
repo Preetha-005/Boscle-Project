@@ -48,8 +48,8 @@ class CaptionGenerator:
             return "Arial"
         elif self.SYSTEM == "Darwin":  # macOS
             return "Helvetica"
-        else:  # Linux
-            return "DejaVu Sans"
+        else:  # Linux - Use Liberation Sans as fallback (widely available)
+            return "Liberation Sans"
         
     def generate_captioned_video(self, video_path: str, transcript: Dict[str, Any], 
                                output_dir: str) -> str:

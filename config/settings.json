@@ -25,7 +25,7 @@
     "caption_generation": {
         "font_size": 24,
         "font_family": "Arial",
-        "font_family_linux": "DejaVu Sans",
+        "font_family_linux": "Liberation Sans",
         "font_family_fallback": "Liberation Sans",
         "font_color": "white",
         "background_color": "black",
