@@ -31,6 +31,7 @@ from src.input_handlers.video_input_handler import VideoInputHandler
 from src.utils.config_manager import ConfigManager
 from src.utils.logger import Logger
 from src.utils.validator import InputValidator
+from src.utils.video_converter import VideoConverter, ensure_compatible_format
 
 # Platform detection
 SYSTEM = platform.system()
@@ -53,6 +54,7 @@ audio_transcriber = AudioTranscriber(config_manager, logger)
 caption_generator = CaptionGenerator(config_manager, logger)
 report_generator = ReportGenerator(config_manager, logger)
 input_handler = VideoInputHandler(config_manager, logger)
+video_converter = VideoConverter(config_manager, logger)
 
 # Store processing status
 processing_status = {}
@@ -481,6 +483,13 @@ def process_video_background(process_id, input_type, video_path_or_url, options)
             video_path = input_handler.download_web_video(video_path_or_url, str(output_dir))
         else:
             raise ValueError('Unknown input type')
+        
+        # Step 1.5: Convert video to compatible format if needed (avi, webm, mov, etc.)
+        update_status(process_id, 15, 'Checking video format')
+        original_video_path = video_path
+        video_path = ensure_compatible_format(video_path, config_manager, logger, str(output_dir))
+        if video_path != original_video_path:
+            logger.info(f"Video converted for compatibility: {original_video_path} -> {video_path}")
         
         # Step 2: Extract frames and analyze
         update_status(process_id, 30, 'Extracting audio')

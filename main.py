@@ -20,6 +20,7 @@ from src.input_handlers.video_input_handler import VideoInputHandler
 from src.utils.config_manager import ConfigManager
 from src.utils.logger import Logger
 from src.utils.validator import InputValidator
+from src.utils.video_converter import ensure_compatible_format
 
 
 class MeetingCaptioningApp:
@@ -256,6 +257,14 @@ class MeetingCaptioningApp:
                 raise ValueError("Unknown input type")
                 
             self.current_video_path = video_path
+            
+            # Step 1.5: Convert video to compatible format if needed (avi, webm, mov, etc.)
+            self.update_progress(15, "Checking video format compatibility...")
+            original_video_path = video_path
+            video_path = ensure_compatible_format(video_path, self.config_manager, self.logger, output_dir)
+            if video_path != original_video_path:
+                self.log_message(f"Video converted for compatibility: {Path(original_video_path).name} -> {Path(video_path).name}")
+                self.current_video_path = video_path
             
             # Step 2: Extract frames and analyze video
             self.update_progress(25, "Extracting frames and analyzing video...")

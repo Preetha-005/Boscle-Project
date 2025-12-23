@@ -98,10 +98,22 @@ elements.fileInput.addEventListener('change', (e) => {
 });
 
 function handleFileSelection(file) {
-    // Validate file type
-    const validTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'];
-    if (!validTypes.includes(file.type)) {
-        showNotification('Please select a valid video file', 'error');
+    // Validate file type - check both MIME type and file extension
+    // Some browsers don't correctly identify MIME types for all video formats
+    const validTypes = [
+        'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+        'video/webm', 'video/x-ms-wmv', 'video/x-flv', 'video/avi', 'video/x-m4v',
+        'video/3gpp', 'video/ogg', 'application/octet-stream' // Some browsers report this for video files
+    ];
+    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.flv', '.m4v', '.3gp'];
+
+    // Get file extension
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    const hasValidType = validTypes.includes(file.type) || file.type === '';
+
+    if (!hasValidExtension && !hasValidType) {
+        showNotification('Please select a valid video file (MP4, MOV, AVI, MKV, WebM, WMV, FLV)', 'error');
         return;
     }
 

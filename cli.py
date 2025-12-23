@@ -18,6 +18,7 @@ from src.input_handlers.video_input_handler import VideoInputHandler
 from src.utils.config_manager import ConfigManager
 from src.utils.logger import Logger
 from src.utils.validator import InputValidator
+from src.utils.video_converter import ensure_compatible_format
 
 
 def create_argument_parser():
@@ -219,6 +220,13 @@ def process_video_cli(args, config_manager, logger):
             video_path = input_handler.download_web_video(args.input, args.output)
         else:
             raise ValueError(f"Unknown input type: {args.type}")
+        
+        # Step 1.5: Convert video to compatible format if needed (avi, webm, mov, etc.)
+        logger.info("Checking video format compatibility...")
+        original_video_path = video_path
+        video_path = ensure_compatible_format(video_path, config_manager, logger, args.output)
+        if video_path != original_video_path:
+            logger.info(f"Video converted for compatibility: {Path(original_video_path).name} -> {Path(video_path).name}")
         
         # Step 2: Process video
         logger.info("Analyzing video content...")
