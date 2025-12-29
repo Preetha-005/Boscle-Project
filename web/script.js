@@ -231,6 +231,7 @@ async function startProcessing() {
             options: {
                 burnCaptions: document.getElementById('burnCaptions').checked,
                 generateReport: document.getElementById('generateReport').checked,
+                generateSceneCaptions: document.getElementById('generateSceneCaptions').checked,
                 passwordProtection: state.passwordProtection,
                 filePassword: state.filePassword
             }
@@ -312,10 +313,13 @@ function updateProgressStepByName(stepName) {
     const stepMap = {
         'Initializing': 1,
         'Processing input': 1,
+        'Checking video format': 1,
         'Extracting audio': 2,
         'Transcribing': 3,
         'Generating captions': 4,
         'Creating report': 5,
+        'Creating scene captions PDF': 5,
+        'Preparing files for download': 5,
         'Complete': 5
     };
 
@@ -439,6 +443,7 @@ function displayResults() {
                         <li>🎬 Captioned Video (with burned-in captions)</li>
                         <li>📄 Meeting Report (PDF)</li>
                         <li>📝 Transcript (TXT)</li>
+                        <li>🎥 Scene Captions (PDF with screenshots)</li>
                     </ul>
                 </div>
                 

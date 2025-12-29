@@ -7,10 +7,12 @@ from .video_processor import VideoProcessor
 from .audio_transcriber import AudioTranscriber
 from .caption_generator import CaptionGenerator
 from .report_generator import ReportGenerator
+from .scene_caption_pdf_generator import SceneCaptionPDFGenerator
 
 __all__ = [
     'VideoProcessor',
     'AudioTranscriber', 
     'CaptionGenerator',
-    'ReportGenerator'
+    'ReportGenerator',
+    'SceneCaptionPDFGenerator'
 ]
