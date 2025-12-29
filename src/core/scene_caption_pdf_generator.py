@@ -272,56 +272,122 @@ class SceneCaptionPDFGenerator:
     def _match_scenes_with_captions(self, scenes: List[Dict[str, Any]], 
                                     transcript: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Match each scene with the corresponding caption/transcript segment
-        based on timestamps.
+        Match each scene with captions by estimating sentence-level timing.
+        Shows only sentences spoken during each scene's specific time window.
         """
+        import re
+        
         segments = transcript.get("segments", [])
         
         if not segments:
             self.logger.warning("No transcript segments available")
             return [dict(scene, caption="[No caption available]") for scene in scenes]
         
+        # Build a list of all sentences with estimated timestamps
+        sentence_list = []
+        
+        for segment in segments:
+            seg_start = segment.get("start", 0)
+            seg_end = segment.get("end", 0)
+            seg_duration = seg_end - seg_start
+            text = segment.get("text", "").strip()
+            
+            if not text:
+                continue
+            
+            # Split into sentences
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            sentences = [s.strip() for s in sentences if s.strip()]
+            
+            if not sentences:
+                continue
+            
+            # Estimate timestamp for each sentence within the segment
+            num_sentences = len(sentences)
+            time_per_sentence = seg_duration / num_sentences
+            
+            for idx, sentence in enumerate(sentences):
+                # Estimate when this sentence was spoken
+                estimated_start = seg_start + (idx * time_per_sentence)
+                estimated_end = seg_start + ((idx + 1) * time_per_sentence)
+                
+                sentence_list.append({
+                    'text': sentence,
+                    'start': estimated_start,
+                    'end': estimated_end,
+                    'segment_start': seg_start,
+                    'segment_end': seg_end
+                })
+        
         matched_scenes = []
         
-        for scene in scenes:
+        # Sort scenes by timestamp to determine time windows
+        sorted_scenes = sorted(scenes, key=lambda s: s["timestamp"])
+        
+        for i, scene in enumerate(sorted_scenes):
             scene_time = scene["timestamp"]
             
-            # Find the transcript segment that contains or is closest to this timestamp
-            best_segment = None
-            best_distance = float('inf')
-            
-            for segment in segments:
-                seg_start = segment.get("start", 0)
-                seg_end = segment.get("end", 0)
-                
-                # Check if scene timestamp falls within this segment
-                if seg_start <= scene_time <= seg_end:
-                    best_segment = segment
-                    break
-                
-                # Calculate distance to segment
-                if scene_time < seg_start:
-                    distance = seg_start - scene_time
-                else:
-                    distance = scene_time - seg_end
-                
-                # Look for closest segment within 10 seconds
-                if distance < best_distance and distance < 10:
-                    best_distance = distance
-                    best_segment = segment
-            
-            # Build caption text
-            if best_segment:
-                caption_text = best_segment.get("text", "").strip()
-                caption_time = f"[{self._format_timestamp(best_segment.get('start', 0))} - {self._format_timestamp(best_segment.get('end', 0))}]"
+            # Define time window for this scene
+            if i < len(sorted_scenes) - 1:
+                next_scene_time = sorted_scenes[i + 1]["timestamp"]
+                window_end = next_scene_time
             else:
-                caption_text = "[No caption available for this scene]"
-                caption_time = ""
+                window_end = scene_time + 8.0  # 8 seconds after last scene
+            
+            window_start = scene_time  # Start from scene timestamp
+            
+            # Collect sentences that fall within this time window
+            relevant_sentences = []
+            earliest_start = None
+            latest_end = None
+            
+            for sentence_data in sentence_list:
+                sent_start = sentence_data['start']
+                sent_end = sentence_data['end']
+                sent_mid = (sent_start + sent_end) / 2
+                
+                # Include sentence if its midpoint is within the time window
+                if window_start <= sent_mid <= window_end:
+                    relevant_sentences.append(sentence_data)
+                    
+                    if earliest_start is None or sent_start < earliest_start:
+                        earliest_start = sent_start
+                    if latest_end is None or sent_end > latest_end:
+                        latest_end = sent_end
+            
+            # Build caption text from relevant sentences
+            if relevant_sentences:
+                caption_parts = [s['text'] for s in relevant_sentences]
+                caption_text = " ".join(caption_parts)
+                caption_time = f"[{self._format_timestamp(earliest_start)} - {self._format_timestamp(latest_end)}]"
+            else:
+                # Fallback: find closest sentence
+                closest_sentence = None
+                min_distance = float('inf')
+                
+                for sentence_data in sentence_list:
+                    sent_mid = (sentence_data['start'] + sentence_data['end']) / 2
+                    distance = abs(scene_time - sent_mid)
+                    
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_sentence = sentence_data
+                
+                if closest_sentence and min_distance < 5.0:
+                    caption_text = closest_sentence['text']
+                    caption_time = f"[{self._format_timestamp(closest_sentence['start'])} - {self._format_timestamp(closest_sentence['end'])}]"
+                else:
+                    caption_text = "[No caption available for this scene]"
+                    caption_time = ""
             
             matched_scene = dict(scene)
             matched_scene["caption"] = caption_text
             matched_scene["caption_time"] = caption_time
             matched_scenes.append(matched_scene)
+        
+        # Sort back to original order
+        scene_to_index = {id(s): idx for idx, s in enumerate(scenes)}
+        matched_scenes.sort(key=lambda s: scene_to_index.get(id(s), 0))
         
         return matched_scenes
     
@@ -426,15 +492,7 @@ class SceneCaptionPDFGenerator:
             
             video_name = Path(video_path).stem
             story.append(Paragraph(f"Video: {video_name}", subtitle_style))
-            story.append(Paragraph(
-                f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')} | Total Scenes: {len(scenes)}", 
-                subtitle_style
-            ))
-            
-            story.append(Paragraph(
-                "Screenshots captured at scene changes with corresponding spoken content.",
-                intro_style
-            ))
+
             
             story.append(Spacer(1, 10))
             

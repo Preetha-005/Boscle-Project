@@ -715,4 +715,12 @@ if __name__ == '__main__':
     
     # Railway deployment configuration
     debug_mode = os.environ.get('FLASK_ENV') != 'production'
-    app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    
+    # Fix for Windows: Use stat reloader instead of watchdog
+    # This prevents the server from restarting when Whisper modifies files
+    # in site-packages during audio processing
+    if debug_mode and IS_WINDOWS:
+        print("\n🔧 Using stat reloader on Windows (more stable with Whisper)")
+        app.run(host='0.0.0.0', port=port, debug=True, use_reloader=True, reloader_type='stat')
+    else:
+        app.run(host='0.0.0.0', port=port, debug=debug_mode)
